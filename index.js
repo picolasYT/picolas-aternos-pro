@@ -1,14 +1,21 @@
 const { spawn } = require("child_process");
 
-function start(name, file) {
+function start(name, file, restart = true) {
   console.log(`🚀 Iniciando ${name}...`);
 
   const p = spawn("node", [file], { stdio: "inherit" });
 
-  p.on("exit", (code) => {
-    console.log(`❌ ${name} se cerró (code ${code}). Reiniciando en 3s...`);
-    setTimeout(() => start(name, file), 3000);
-  });
+  if (restart) {
+    p.on("exit", (code) => {
+      console.log(`❌ ${name} se cerró (code ${code}). Reiniciando en 3s...`);
+      setTimeout(() => start(name, file, restart), 3000);
+    });
+  } else {
+    // SIN auto-restart (para Mineflayer)
+    p.on("exit", (code) => {
+      console.log(`❌ ${name} se cerró (code ${code}).`);
+    });
+  }
 
   p.on("error", (err) => {
     console.log(`⚠ Error en ${name}:`, err.message);
@@ -18,9 +25,9 @@ function start(name, file) {
 }
 
 // ---- Lanzamos TODO con un solo comando ----
-const discord = start("Discord Bot", "discord.js");
-const watchdog = start("Watchdog", "main.js");
-const mine = start("Mineflayer", "minebot.js");
+const discord  = start("Discord Bot", "discord.js", true);
+const watchdog = start("Watchdog", "main.js", true);
+const mine     = start("Mineflayer", "minebot.js", false); // ⬅️ SIN auto-restart
 
 // ---- Cierre limpio con Ctrl+C ----
 process.on("SIGINT", () => {
