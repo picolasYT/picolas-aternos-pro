@@ -3,7 +3,8 @@ const {
   GatewayIntentBits,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  Partials
 } = require("discord.js");
 
 const CFG = require("./config");
@@ -18,6 +19,11 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages
+  ],
+  partials: [
+    Partials.Channel,   // 👉 NECESARIO para DMs
+    Partials.Message,
+    Partials.User
   ]
 });
 
@@ -49,17 +55,23 @@ client.once("ready", () => {
 // MENSAJES
 // =================
 client.on("messageCreate", async (msg) => {
+
+  // LOG DE DMs
+  if (!msg.guild) {
+    console.log(`📩 DM de ${msg.author.username}: ${msg.content}`);
+  }
+
   if (msg.author.bot) return;
-  const text = msg.content.trim();
+  const text = (msg.content || "").trim();
   const userId = msg.author.id;
 
-  console.log(`📩 ${msg.author.username}: ${text}`);
+  console.log(`💬 ${msg.guild ? "SERVER" : "DM"} | ${msg.author.username}: ${text}`);
 
   // =================
   // DEPLOY PRIVADO
   // =================
   if (text === "!deploy") {
-    if (msg.guild) return msg.reply("📩 Mandá `!deploy` por PRIVADO.");
+    if (msg.guild) return msg.reply("📩 Mandame `!deploy` por PRIVADO.");
 
     deploySessions[userId] = { step: 0, data: {} };
     return msg.channel.send("🧱 IP del servidor?");
@@ -213,7 +225,7 @@ module.exports = {
     if (MineBot.stopBot) MineBot.stopBot();
     mineProcess = null;
 
-    return msg.channel.send("🛑 Minetbot detenido.");
+    return msg.channel.send("🛑 Minebot detenido.");
   }
 
   // =================
@@ -225,6 +237,7 @@ module.exports = {
     MineBot.tellFromDiscord(m);
     return msg.channel.send("✅ Enviado al server.");
   }
+
 });
 
 // =================
