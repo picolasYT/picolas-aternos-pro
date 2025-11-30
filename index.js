@@ -11,7 +11,7 @@ function start(name, file, restart = true) {
       setTimeout(() => start(name, file, restart), 3000);
     });
   } else {
-    // SIN auto-restart (para Mineflayer)
+    // (no usamos auto-restart acá)
     p.on("exit", (code) => {
       console.log(`❌ ${name} se cerró (code ${code}).`);
     });
@@ -24,11 +24,15 @@ function start(name, file, restart = true) {
   return p;
 }
 
-// ---- Lanzamos TODO con un solo comando ----
+// ------------------------
+// PROCESOS PRINCIPALES
+// ------------------------
 const discord  = start("Discord Bot", "discord.js", true);
-const watchdog = start("Watchdog", "main.js", true);
+const watchdog = start("Watchdog", "main.js", true); // solo mira estado
 
-// ---- Cierre limpio con Ctrl+C ----
+// ------------------------
+// CIERRE LIMPIO
+// ------------------------
 process.on("SIGINT", () => {
   console.log("\n🛑 Cerrando procesos...");
   discord.kill();
