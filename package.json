@@ -1,0 +1,15 @@
+{
+  "name": "picolas-aternos-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord + Mineflayer + Watchdog (Arranque único con index.js)",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.25.1",
+    "mineflayer": "^4.33.0",
+    "node-fetch": "^3.3.2"
+  }
+}

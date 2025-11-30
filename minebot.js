@@ -4,22 +4,22 @@ const CFG = require("./config");
 function startBot() {
   const bot = mineflayer.createBot({
     host: CFG.SERVER_IP,
-    username: "PicolasBot",
-    version: false
+    port: CFG.SERVER_PORT,
+    username: "PicolasBot",   // ← Nombre del bot
+    onlineMode: false         // ← IMPORTANTE para cracked
   });
 
   bot.on("spawn", () => {
-    console.log("✅ Bot Mineflayer conectado");
-    bot.chat("🤖 Picolas AFK activo");
+    console.log("🤖 Bot conectado como PicolasBot");
+    bot.chat("Hola, soy PicolasBot 🤖");
   });
 
   bot.on("end", () => {
-    console.log("⚠ Bot caído, reconectando...");
+    console.log("⚠ Desconectado, reintentando...");
     setTimeout(startBot, 15000);
   });
 
-  bot.on("kicked", r => console.log("Kicked:", r));
-  bot.on("error", () => {});
+  bot.on("error", err => console.log("Error:", err));
 }
 
-module.exports = { startBot };
+startBot();
