@@ -24,6 +24,7 @@ function startBot() {
     host: CFG.SERVER_IP,
     port: CFG.SERVER_PORT || 25565,
     username: CFG.BOT_USERNAME || "PicolasBot_AFK",
+      version: CFG.MC_VERSION || "1.20.4",  // <- AGREGA ESTO
     onlineMode: false,
     keepAlive: true,
   });
