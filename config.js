@@ -6,7 +6,7 @@ module.exports = {
   SERVER_IP: "",         // ej: "mi-server.aternos.me"
   SERVER_PORT: 25565,    // puerto default
   MC_VERSION: "1.20.4",  // versión directa (MUY IMPORTANTE)
-  BOT_USERNAME: "PicolasBot", // nombre del bot Minecraft
+BOT_USERNAME: "PicolasBot",
 
   CHECK_INTERVAL: 30000, // watchdog cada 30 segundos
 
