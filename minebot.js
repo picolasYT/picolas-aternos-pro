@@ -3,6 +3,7 @@ const CFG = require("./config");
 
 let bot = null;
 let connecting = false;
+let greeted = false;
 
 function startBot() {
   if (connecting) return;        // evita spam de conexiones
