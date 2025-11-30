@@ -37,12 +37,8 @@ Copiar código
 
 ## ⚙ Instalación
 
-Cloná el repositorio:
+pkg update -y && pkg upgrade -y && pkg install -y git clone https://github.com/picolasYT/picolas-aternos-pro.git && cd picolas-aternos-pro && npm install && nano config.js
 
-bash´´´
-git clone https://github.com/picolasYT/picolas-aternos-bot.git
-cd picolas-aternos-bot
-´´´
 Instalá dependencias:
 
 bash´´´
