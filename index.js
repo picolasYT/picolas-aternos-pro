@@ -27,13 +27,11 @@ function start(name, file, restart = true) {
 // ---- Lanzamos TODO con un solo comando ----
 const discord  = start("Discord Bot", "discord.js", true);
 const watchdog = start("Watchdog", "main.js", true);
-const mine     = start("Mineflayer", "minebot.js", false); // ⬅️ SIN auto-restart
 
 // ---- Cierre limpio con Ctrl+C ----
 process.on("SIGINT", () => {
   console.log("\n🛑 Cerrando procesos...");
   discord.kill();
   watchdog.kill();
-  mine.kill();
   process.exit();
 });

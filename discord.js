@@ -2,6 +2,7 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const CFG = require("./config");
 const net = require("net");
 const { spawn } = require("child_process");
+const { tellFromDiscord } = require("./minebot");
 
 const client = new Client({
   intents: [
@@ -52,23 +53,32 @@ client.on("messageCreate", async (msg) => {
       mineProcess = null;
     });
 
-    return msg.channel.send("🤖 Mineflayer iniciado.");
+    return msg.channel.send("🟢 **Mineflayer iniciado**");
   }
 
-  // ---- STOP2: Detener Mineflayer (opcional) ----
+  // ---- STOP2: Detener Mineflayer ----
   if (msg.content === "!stop2") {
     if (!mineProcess || mineProcess.killed) {
       return msg.channel.send("ℹ️ Mineflayer no está corriendo.");
     }
     mineProcess.kill();
     mineProcess = null;
-    return msg.channel.send("🛑 Mineflayer detenido.");
+    return msg.channel.send("🛑 **Mineflayer detenido**");
   }
 
-  // ---- START (solo link) ----
+  // ---- SAY: habla en Minecraft ----
+  if (msg.content.startsWith("!say ")) {
+    const text = msg.content.slice(5).trim();
+    if (!text) return msg.channel.send("❗ Escribí un mensaje. Ej: `!say hola`");
+    tellFromDiscord(text);
+    return msg.channel.send("✅ Mensaje enviado al servidor.");
+  }
+
+  // ---- START (solo link Aternos) ----
   if (msg.content === "!start") {
     return msg.channel.send(`👉 Abrir servidor:\n${CFG.START_URL || ""}`);
   }
+
 });
 
 client.login(CFG.DISCORD_TOKEN);
