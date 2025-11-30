@@ -1,14 +1,18 @@
 module.exports = {
-  DISCORD_TOKEN: "",      // <-- Token de tu bot
-  CHANNEL_ID: "",        // (Opcional si usás webhook)
-  WEBHOOK_URL: "",       // (Para avisos automáticos luego)
+  // ---- DISCORD ----
+  DISCORD_TOKEN: "",        // Token del bot (NUEVO después de rotar)
+  CHANNEL_ID: "",          // Opcional (por si luego avisamos ahí)
+  WEBHOOK_URL: "",         // Opcional (webhook nuevo)
 
-  SERVER_IP: "",         // ej: "mi-server.aternos.me"
-  SERVER_PORT: 25565,    // puerto default
-  MC_VERSION: "1.20.4",  // versión directa (MUY IMPORTANTE)
-BOT_USERNAME: "PicolasBot",
+  // ---- MINECRAFT ----
+  SERVER_IP: "",           // ej: "tuserver.aternos.me"
+  SERVER_PORT: 25565,      // puerto correcto de Aternos
+  MC_VERSION: "1.20.4",    // versión del BOT Mineflayer (ej: "1.20.4")
+  BOT_USERNAME: "PicolasBot", // nombre que querés para el bot
 
-  CHECK_INTERVAL: 30000, // watchdog cada 30 segundos
+  // ---- WATCHDOG ----
+  CHECK_INTERVAL: 30000,   // cada 30s revisa estado
 
-  START_URL: "https://aternos.org/server/"
+  // ---- LINK ATERNOS ----
+  START_URL: "https://aternos.org/server/" // tu panel
 };
