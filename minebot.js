@@ -9,7 +9,7 @@ let autoTimer = null;
 
 const AUTO_MESSAGES = [
   "👋 Hola! Soy PicolasBot 🤖",
-  "💬 Unite a nuestro Discord: https://discord.gg/g9ZjfNmFuY",
+  "💬 Unite a nuestro Discord: https://discord.gg/VS5gS88WZf",
   "⚡ Server gracias a PicolasBot",
 ];
 const AUTO_INTERVAL = 5 * 60 * 1000; // 5 min
@@ -43,7 +43,7 @@ function startBot() {
     connecting = false;
 
     if (!greeted) {
-      safeChat("Hola, soy PicolasBot 🤖 | Discord: https://discord.gg/g9ZjfNmFuY");
+      safeChat("Hola, soy PicolasBot 🤖 | Discord: https://discord.gg/VS5gS88WZf");
       greeted = true;
     }
 
