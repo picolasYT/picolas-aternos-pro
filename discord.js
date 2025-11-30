@@ -20,19 +20,34 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages
   ],
-  partials: [
-    Partials.Channel,   // 👉 NECESARIO para DMs
-    Partials.Message,
-    Partials.User
-  ]
+  partials: [Partials.Channel, Partials.Message, Partials.User]
 });
 
 let mineProcess = null;
 const deploySessions = {};
 
-// =================
-// PING SERVER
-// =================
+// =====================
+// ADMIN SISTEMA
+// =====================
+function isAdmin(id) {
+  return CFG.ADMINS && CFG.ADMINS.includes(id);
+}
+
+function getBots() {
+  if (!fs.existsSync("./bots")) return [];
+  return fs.readdirSync("./bots").filter(f => fs.lstatSync(`./bots/${f}`).isDirectory());
+}
+
+function deleteUserBot(userId) {
+  const path = `./bots/${userId}`;
+  if (!fs.existsSync(path)) return false;
+  fs.rmSync(path, { recursive: true, force: true });
+  return true;
+}
+
+// =====================
+// PING SERVER MC
+// =====================
 function isOnline() {
   return new Promise(resolve => {
     const s = new net.Socket();
@@ -56,7 +71,6 @@ client.once("ready", () => {
 // =================
 client.on("messageCreate", async (msg) => {
 
-  // LOG DE DMs
   if (!msg.guild) {
     console.log(`📩 DM de ${msg.author.username}: ${msg.content}`);
   }
@@ -67,12 +81,47 @@ client.on("messageCreate", async (msg) => {
 
   console.log(`💬 ${msg.guild ? "SERVER" : "DM"} | ${msg.author.username}: ${text}`);
 
-  // =================
-  // DEPLOY PRIVADO
-  // =================
-  if (text === "!deploy") {
-    if (msg.guild) return msg.reply("📩 Mandame `!deploy` por PRIVADO.");
+  // ============
+  // ADMIN PANEL
+  // ============
 
+  if (text === "!adminlist") {
+    if (!isAdmin(userId)) return msg.channel.send("⛔ No sos admin.");
+    const bots = getBots();
+    if (bots.length === 0) return msg.channel.send("⚠ No hay bots.");
+    return msg.channel.send("🤖 Bots:\n" + bots.map(b => `• ${b}`).join("\n"));
+  }
+
+  if (text.startsWith("!admindelete ")) {
+    if (!isAdmin(userId)) return msg.channel.send("⛔ No sos admin.");
+    const id = text.split(" ")[1];
+    if (!id) return msg.channel.send("Uso: `!admindelete ID`");
+    const ok = deleteUserBot(id);
+    return msg.channel.send(ok ? `🗑 Bot ${id} eliminado.` : "❌ No existe ese bot.");
+  }
+
+  if (text === "!adminwipe") {
+    if (!isAdmin(userId)) return msg.channel.send("⛔ No sos admin.");
+    const bots = getBots();
+    bots.forEach(id => deleteUserBot(id));
+    return msg.channel.send("🔥 Todos los bots eliminados.");
+  }
+
+  // =====================
+  // BORRAR BOT PROPIO
+  // =====================
+  if (text === "!deletebot") {
+    const path = `./bots/${userId}`;
+    if (!fs.existsSync(path)) return msg.channel.send("❌ No tenés bot.");
+    fs.rmSync(path, { recursive: true, force: true });
+    return msg.channel.send("🧹 Tu bot fue eliminado.");
+  }
+
+  // =====================
+  // DEPLOY PRIVADO
+  // =====================
+  if (text === "!deploy") {
+    if (msg.guild) return msg.reply("📩 Escribí `!deploy` por PRIVADO.");
     deploySessions[userId] = { step: 0, data: {} };
     return msg.channel.send("🧱 IP del servidor?");
   }
@@ -83,11 +132,11 @@ client.on("messageCreate", async (msg) => {
     if (s.step === 0) {
       s.data.ip = text;
       s.step++;
-      return msg.channel.send("🔌 Puerto del servidor?");
+      return msg.channel.send("🔌 Puerto?");
     }
 
     if (s.step === 1) {
-      if (isNaN(text)) return msg.channel.send("❗ El puerto debe ser número.");
+      if (isNaN(text)) return msg.channel.send("❗ Puerto inválido.");
       s.data.port = text;
       s.step++;
       return msg.channel.send("🤖 Nombre del bot?");
@@ -96,20 +145,24 @@ client.on("messageCreate", async (msg) => {
     if (s.step === 2) {
       s.data.name = text;
       s.step++;
-      return msg.channel.send("🎮 Versión del server? (ej: 1.20.4)");
+      return msg.channel.send("🎮 Versión (ej 1.20.4)");
     }
 
     if (s.step === 3) {
       s.data.version = text;
       s.step++;
-      return msg.channel.send("✅ Escribí `si` para confirmar o `no`");
+      return msg.channel.send("✅ Escribí `si` para confirmar.");
     }
 
     if (s.step === 4) {
       if (text.toLowerCase() !== "si") {
         delete deploySessions[userId];
-        return msg.channel.send("❌ Deploy cancelado.");
+        return msg.channel.send("❌ Cancelado.");
       }
+
+      const folder = `./bots/${userId}`;
+      if (!fs.existsSync("./bots")) fs.mkdirSync("./bots");
+      if (!fs.existsSync(folder)) fs.mkdirSync(folder);
 
       const cfg = `
 module.exports = {
@@ -123,12 +176,12 @@ module.exports = {
 };
 `;
 
-      fs.writeFileSync("./config.js", cfg.trim());
+      fs.writeFileSync(`${folder}/config.js`, cfg.trim());
       delete deploySessions[userId];
 
       return msg.channel.send(
-        "✅ CONFIG creada.\n" +
-        "♻ Reiniciá el bot:\n" +
+        "✅ Config creada.\n\n" +
+        "⚠ Reiniciá el bot:\n" +
         "`npm start`"
       );
     }
@@ -141,31 +194,13 @@ module.exports = {
   // =================
   if (text === "!panel") {
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("start_bot")
-        .setLabel("🚀 Iniciar Minebot")
-        .setStyle(ButtonStyle.Success),
-
-      new ButtonBuilder()
-        .setCustomId("stop_bot")
-        .setLabel("🛑 Detener Minebot")
-        .setStyle(ButtonStyle.Danger),
-
-      new ButtonBuilder()
-        .setCustomId("status")
-        .setLabel("📡 Estado")
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId("help")
-        .setLabel("❓ Ayuda")
-        .setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("start_bot").setLabel("🚀 Iniciar").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("stop_bot").setLabel("🛑 Detener").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("status").setLabel("📡 Estado").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("help").setLabel("❓ Ayuda").setStyle(ButtonStyle.Secondary)
     );
 
-    return msg.channel.send({
-      content: "🎮 **PANEL PICOLAS BOT**",
-      components: [row]
-    });
+    return msg.channel.send({ content: "🎮 PANEL PICOLAS BOT", components: [row] });
   }
 
   // =================
@@ -173,15 +208,9 @@ module.exports = {
   // =================
   if (text === "!help") {
     return msg.channel.send(
-      "🤖 **PicolasAternosBot**\n\n" +
-      "🟢 `!status`\n" +
-      "🚀 `!start`\n\n" +
-      "🎮 **Minebot**\n" +
-      "▶ `!start2`\n" +
-      "⏹ `!stop2`\n" +
-      "📢 `!say mensaje`\n\n" +
-      "🎛 `!panel`\n" +
-      "📩 `!deploy` (por privado)"
+      "🤖 PicolasAternosBot\n\n" +
+      "`!status`\n`!start`\n`!start2`\n`!stop2`\n`!say`\n`!deploy`\n`!deletebot`\n`!panel`\n\n" +
+      "👑 ADMIN:\n`!adminlist`\n`!admindelete ID`\n`!adminwipe`"
     );
   }
 
@@ -201,31 +230,23 @@ module.exports = {
   }
 
   // =================
-  // START MINEBOT
+  // START BOT
   // =================
   if (text === "!start2") {
-    const ok = await isOnline();
-    if (!ok) return msg.channel.send("🔴 Servidor apagado.");
-
-    if (mineProcess) return msg.channel.send("⚠️ Ya está activo.");
-
+    if (mineProcess) return msg.channel.send("⚠ Ya activo.");
     mineProcess = spawn("node", ["minebot.js"], { stdio: "inherit" });
     mineProcess.on("exit", () => mineProcess = null);
-
     return msg.channel.send("✅ Minebot iniciado.");
   }
 
   // =================
-  // STOP MINEBOT
+  // STOP BOT
   // =================
   if (text === "!stop2") {
-    if (!mineProcess) return msg.channel.send("ℹ️ No está activo.");
-
+    if (!mineProcess) return msg.channel.send("ℹ No activo.");
     mineProcess.kill();
-    if (MineBot.stopBot) MineBot.stopBot();
     mineProcess = null;
-
-    return msg.channel.send("🛑 Minebot detenido.");
+    return msg.channel.send("🛑 Detenido.");
   }
 
   // =================
@@ -233,11 +254,10 @@ module.exports = {
   // =================
   if (text.startsWith("!say ")) {
     const m = text.slice(5).trim();
-    if (!m) return msg.channel.send("❗ Falta texto.");
+    if (!m) return msg.channel.send("❗ Texto vacío.");
     MineBot.tellFromDiscord(m);
-    return msg.channel.send("✅ Enviado al server.");
+    return msg.channel.send("✅ Enviado.");
   }
-
 });
 
 // =================
@@ -247,24 +267,16 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
 
   if (interaction.customId === "start_bot") {
-    const ok = await isOnline();
-    if (!ok) return interaction.reply({ content: "🔴 Servidor apagado.", ephemeral: true });
-
-    if (mineProcess) return interaction.reply({ content: "⚠ Ya está activo.", ephemeral: true });
-
+    if (mineProcess) return interaction.reply({ content: "⚠ Ya activo.", ephemeral: true });
     mineProcess = spawn("node", ["minebot.js"], { stdio: "inherit" });
     mineProcess.on("exit", () => mineProcess = null);
-
-    return interaction.reply("✅ Minebot conectado.");
+    return interaction.reply("✅ Bot iniciado.");
   }
 
   if (interaction.customId === "stop_bot") {
-    if (!mineProcess) return interaction.reply({ content: "ℹ No está activo.", ephemeral: true });
-
+    if (!mineProcess) return interaction.reply({ content: "ℹ No activo.", ephemeral: true });
     mineProcess.kill();
-    if (MineBot.stopBot) MineBot.stopBot();
     mineProcess = null;
-
     return interaction.reply("🛑 Bot detenido.");
   }
 
@@ -275,15 +287,7 @@ client.on("interactionCreate", async (interaction) => {
 
   if (interaction.customId === "help") {
     return interaction.reply({
-      content:
-        "🤖 **Comandos**\n\n" +
-        "`!panel`\n" +
-        "`!status`\n" +
-        "`!start`\n" +
-        "`!start2`\n" +
-        "`!stop2`\n" +
-        "`!say`\n" +
-        "`!deploy`",
+      content: "`!panel` `!start` `!start2` `!stop2` `!say` `!deploy` `!deletebot`",
       ephemeral: true
     });
   }

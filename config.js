@@ -3,6 +3,7 @@ module.exports = {
   DISCORD_TOKEN: "",        // Token del bot (NUEVO después de rotar)
   CHANNEL_ID: "",          // Opcional (por si luego avisamos ahí)
   WEBHOOK_URL: "",         // Opcional (webhook nuevo)
+  ADMINS: ["1378115465745928365"], // IDs de usuarios con permisos
 
   // ---- MINECRAFT ----
   SERVER_IP: "",           // ej: "tuserver.aternos.me"
