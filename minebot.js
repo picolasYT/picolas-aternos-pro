@@ -86,3 +86,4 @@ module.exports = { tellFromDiscord, startBot };
 
 // Mantener vivo el proceso
 setInterval(() => {}, 1000);
+startBot();
