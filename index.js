@@ -11,7 +11,6 @@ function start(name, file, restart = true) {
       setTimeout(() => start(name, file, restart), 3000);
     });
   } else {
-    // (no usamos auto-restart acá)
     p.on("exit", (code) => {
       console.log(`❌ ${name} se cerró (code ${code}).`);
     });
@@ -24,18 +23,18 @@ function start(name, file, restart = true) {
   return p;
 }
 
-// ------------------------
+// ==========================
 // PROCESOS PRINCIPALES
-// ------------------------
+// ==========================
 const discord  = start("Discord Bot", "discord.js", true);
-const watchdog = start("Watchdog", "main.js", true); // solo mira estado
+const watchdog = start("Watchdog", "main.js", true);
 
-// ------------------------
+// ==========================
 // CIERRE LIMPIO
-// ------------------------
+// ==========================
 process.on("SIGINT", () => {
   console.log("\n🛑 Cerrando procesos...");
-  discord.kill();
-  watchdog.kill();
+  if (discord) discord.kill();
+  if (watchdog) watchdog.kill();
   process.exit();
 });

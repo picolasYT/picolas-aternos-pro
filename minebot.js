@@ -19,7 +19,7 @@ const AUTO_INTERVAL = 5 * 60 * 1000; // 5 min
 const AUTO_MESSAGES = ADS_ENABLED ? [
   "👋 Hola! Soy PicolasBot 🤖",
   "💬 Unite a nuestro Discord: https://discord.gg/VS5gS88WZf",
-  "⭐ Pasate a PLAN PRO para más ventajas",
+  "⭐ Pasate a PLAN PRO para más ventajas"
 ] : [];
 
 function log(msg) {
@@ -141,6 +141,11 @@ function tellFromDiscord(message) {
 }
 
 module.exports = { tellFromDiscord, startBot, stopBot };
+
+// =======================
+// ✅ AUTO START
+// =======================
+startBot();
 
 // Mantener proceso vivo
 setInterval(() => {}, 1000);
