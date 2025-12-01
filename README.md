@@ -37,15 +37,8 @@ Copiar código
 
 ## ⚙ Instalación
 
-pkg update -y && pkg upgrade -y && pkg install -y git clone https://github.com/picolasYT/picolas-aternos-pro.git && cd picolas-aternos-pro && npm install && nano config.js
+pkg update -y && pkg upgrade -y && pkg install -y git nodejs && rm -rf picolas-aternos-pro && git clone https://github.com/picolasYT/picolas-aternos-pro.git && cd picolas-aternos-pro && npm install && nano config.js
 
-npm install discord.js mineflayer
-
-Instalá dependencias:
-
-bash´´´
-npm install
-´´´
 
 ## 💬 Comandos de Discord
 

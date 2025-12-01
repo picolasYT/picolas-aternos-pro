@@ -1,26 +1,37 @@
 const mineflayer = require("mineflayer");
 const CFG = require("./config");
 
+// =======================
+// PLAN SaaS
+// =======================
+const RECONNECT_TIME = (CFG.RECONNECT_TIME || 60) * 1000; // seg → ms
+const ADS_ENABLED = CFG.ADS_ENABLED === true;
+const PLAN = CFG.PLAN || "FREE";
+
 let bot = null;
 let connecting = false;
 let greeted = false;
 let reconnectTimeout = null;
 let autoTimer = null;
 
-const AUTO_MESSAGES = [
-  "👋 Hola! Soy PicolasBot 🤖",
-  "💬 Unite a nuestro Discord: https://discord.gg/VS5gS88WZf",
-  "⚡ Server gracias a PicolasBot",
-];
 const AUTO_INTERVAL = 5 * 60 * 1000; // 5 min
 
+const AUTO_MESSAGES = ADS_ENABLED ? [
+  "👋 Hola! Soy PicolasBot 🤖",
+  "💬 Unite a nuestro Discord: https://discord.gg/VS5gS88WZf",
+  "⭐ Pasate a PLAN PRO para más ventajas",
+] : [];
+
 function log(msg) {
-  console.log(`[MineBot] ${msg}`);
+  console.log(`[MineBot][${PLAN}] ${msg}`);
 }
 
+// =======================
+// INICIAR BOT
+// =======================
 function startBot() {
   if (connecting) {
-    log("⏳ Ya se está intentando conectar, ignorado.");
+    log("⏳ Ya se está intentando conectar...");
     return;
   }
 
@@ -43,16 +54,20 @@ function startBot() {
     connecting = false;
 
     if (!greeted) {
-      safeChat("Hola, soy PicolasBot 🤖 | Discord: https://discord.gg/VS5gS88WZf");
+      safeChat(`🤖 PicolasBot conectado | PLAN ${PLAN}`);
       greeted = true;
     }
 
-    if (autoTimer) clearInterval(autoTimer);
-    autoTimer = setInterval(() => {
-      const msg = AUTO_MESSAGES[Math.floor(Math.random() * AUTO_MESSAGES.length)];
-      safeChat(msg);
-    }, AUTO_INTERVAL);
+    // ADS según plan
+    if (ADS_ENABLED) {
+      if (autoTimer) clearInterval(autoTimer);
+      autoTimer = setInterval(() => {
+        const msg = AUTO_MESSAGES[Math.floor(Math.random() * AUTO_MESSAGES.length)];
+        safeChat(msg);
+      }, AUTO_INTERVAL);
+    }
 
+    // Anti-AFK
     setInterval(() => {
       if (!bot || !bot.entity) return;
       bot.setControlState("jump", true);
@@ -65,16 +80,15 @@ function startBot() {
     log(`⚠ Kicked: ${txt}`);
 
     if (txt.includes("duplicate_login")) {
-      log("❌ El bot ya está conectado desde otro lado.");
+      log("❌ Ya está conectado desde otro lado.");
       stopBot();
     }
   });
 
   bot.on("end", () => {
-    log("🔌 Desconectado del servidor");
+    log("🔌 Desconectado del server");
     connecting = false;
     if (autoTimer) clearInterval(autoTimer);
-
     scheduleReconnect();
   });
 
@@ -83,16 +97,22 @@ function startBot() {
   });
 }
 
+// =======================
+// RECONEXIÓN SEGÚN PLAN
+// =======================
 function scheduleReconnect() {
   if (reconnectTimeout) return;
 
-  log("⏱ Reintentando en 60 segundos...");
+  log(`⏱ Reintentando en ${CFG.RECONNECT_TIME || 60} segundos...`);
   reconnectTimeout = setTimeout(() => {
     reconnectTimeout = null;
     startBot();
-  }, 60000);
+  }, RECONNECT_TIME);
 }
 
+// =======================
+// STOP
+// =======================
 function stopBot() {
   if (autoTimer) clearInterval(autoTimer);
   if (bot) {
@@ -104,12 +124,15 @@ function stopBot() {
   reconnectTimeout = null;
 }
 
+// =======================
+// CHAT
+// =======================
 function safeChat(text) {
   if (!bot || !bot.entity) return;
   try {
     bot.chat(text);
   } catch (e) {
-    log("⚠ No se pudo enviar mensaje");
+    log("⚠ Error al enviar mensaje");
   }
 }
 
@@ -121,6 +144,3 @@ module.exports = { tellFromDiscord, startBot, stopBot };
 
 // Mantener proceso vivo
 setInterval(() => {}, 1000);
-
-// AUTO START
-startBot();

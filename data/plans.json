@@ -1,0 +1,12 @@
+{
+  "FREE": {
+    "maxBots": 1,
+    "reconnect": 60,
+    "ads": true
+  },
+  "PRO": {
+    "maxBots": 99,
+    "reconnect": 10,
+    "ads": false
+  }
+}

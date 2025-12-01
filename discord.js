@@ -13,6 +13,9 @@ const { spawn } = require("child_process");
 const MineBot = require("./minebot");
 const fs = require("fs");
 
+// ==========================
+// CLIENTE DISCORD
+// ==========================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -23,31 +26,93 @@ const client = new Client({
   partials: [Partials.Channel, Partials.Message, Partials.User]
 });
 
+// ==========================
+// SESIONES
+// ==========================
 let mineProcess = null;
 const deploySessions = {};
+const adminSession = {};
+const ADMIN_PASSWORD = "picolas1234";
 
-// =====================
-// ADMIN SISTEMA
-// =====================
-function isAdmin(id) {
-  return CFG.ADMINS && CFG.ADMINS.includes(id);
+// ==========================
+// SISTEMA SaaS
+// ==========================
+const USERS_FILE = "./data/users.json";
+const PREMIUM_FILE = "./data/premium.json";
+const PLANS_FILE = "./data/plans.json";
+
+// ==========================
+// HELPERS JSON
+// ==========================
+function loadJSON(file, def = {}) {
+  if (!fs.existsSync(file)) return def;
+  return JSON.parse(fs.readFileSync(file));
+}
+function saveJSON(file, data) {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
+// ==========================
+// USUARIOS & PLANES
+// ==========================
+function getPlans() {
+  return loadJSON(PLANS_FILE, {});
+}
+function getUsers() {
+  return loadJSON(USERS_FILE, {});
+}
+function getUserData(userId) {
+  const users = getUsers();
+  if (!users[userId]) {
+    users[userId] = { plan: "FREE", bots: 0, since: new Date().toISOString(), expire: null };
+    saveJSON(USERS_FILE, users);
+  }
+  return users[userId];
+}
+function updateUser(userId, data) {
+  const users = getUsers();
+  users[userId] = data;
+  saveJSON(USERS_FILE, users);
+}
+function maxBotsFor(userId) {
+  const plans = getPlans();
+  const user = getUserData(userId);
+  const plan = plans[user.plan] || plans["FREE"];
+  return plan.maxBots || 1;
+}
+function isPremium(userId) {
+  const premium = loadJSON(PREMIUM_FILE, {});
+  return premium[userId] === true;
+}
+
+// ==========================
+// ADMIN
+// ==========================
+function isAdmin(id) {
+  return adminSession[id] === true;
+}
 function getBots() {
   if (!fs.existsSync("./bots")) return [];
   return fs.readdirSync("./bots").filter(f => fs.lstatSync(`./bots/${f}`).isDirectory());
 }
-
 function deleteUserBot(userId) {
   const path = `./bots/${userId}`;
   if (!fs.existsSync(path)) return false;
   fs.rmSync(path, { recursive: true, force: true });
+
+  // actualizar contador SaaS
+  const user = getUserData(userId);
+  if (user.bots > 0) {
+    user.bots--;
+    updateUser(userId, user);
+  }
+
   return true;
 }
 
-// =====================
-// PING SERVER MC
-// =====================
+// ==========================
+// CHECK MC SERVER
+// ==========================
 function isOnline() {
   return new Promise(resolve => {
     const s = new net.Socket();
@@ -59,73 +124,129 @@ function isOnline() {
   });
 }
 
-// =================
+// ==========================
 // READY
-// =================
+// ==========================
 client.once("ready", () => {
-  console.log("🤖 Discord bot listo como", client.user.username);
+  console.log("🤖 PicolasAternosBot SaaS listo:", client.user.username);
 });
 
-// =================
+// ==========================
 // MENSAJES
-// =================
+// ==========================
 client.on("messageCreate", async (msg) => {
-
-  if (!msg.guild) {
-    console.log(`📩 DM de ${msg.author.username}: ${msg.content}`);
-  }
-
   if (msg.author.bot) return;
+
   const text = (msg.content || "").trim();
   const userId = msg.author.id;
 
-  console.log(`💬 ${msg.guild ? "SERVER" : "DM"} | ${msg.author.username}: ${text}`);
+  // ==================================
+  // ADMIN LOGIN
+  // ==================================
+  if (text.startsWith("!admin ")) {
+    const pass = text.split(" ")[1];
+    if (pass !== ADMIN_PASSWORD) return msg.reply("❌ Contraseña incorrecta.");
 
-  // ============
-  // ADMIN PANEL
-  // ============
+    adminSession[userId] = true;
 
-  if (text === "!adminlist") {
-    if (!isAdmin(userId)) return msg.channel.send("⛔ No sos admin.");
-    const bots = getBots();
-    if (bots.length === 0) return msg.channel.send("⚠ No hay bots.");
-    return msg.channel.send("🤖 Bots:\n" + bots.map(b => `• ${b}`).join("\n"));
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("admin_list").setLabel("📋 Ver Bots").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("admin_wipe").setLabel("🔥 Borrar TODOS").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("admin_close").setLabel("❌ Cerrar").setStyle(ButtonStyle.Secondary)
+    );
+
+    return msg.channel.send({ content: "👑 PANEL ADMIN PICOLAS (SaaS)", components: [row] });
   }
 
-  if (text.startsWith("!admindelete ")) {
-    if (!isAdmin(userId)) return msg.channel.send("⛔ No sos admin.");
+  // ==================================
+  // ADMIN PREMIUM
+  // ==================================
+  if (text.startsWith("!givepremium ")) {
+    if (!adminSession[userId]) return msg.reply("⛔");
+
     const id = text.split(" ")[1];
-    if (!id) return msg.channel.send("Uso: `!admindelete ID`");
-    const ok = deleteUserBot(id);
-    return msg.channel.send(ok ? `🗑 Bot ${id} eliminado.` : "❌ No existe ese bot.");
+    const premium = loadJSON(PREMIUM_FILE, {});
+    premium[id] = true;
+    saveJSON(PREMIUM_FILE, premium);
+
+    const user = getUserData(id);
+    user.plan = "PRO";
+    updateUser(id, user);
+
+    return msg.reply(`✅ Usuario ${id} ahora es **PRO**`);
   }
 
-  if (text === "!adminwipe") {
-    if (!isAdmin(userId)) return msg.channel.send("⛔ No sos admin.");
-    const bots = getBots();
-    bots.forEach(id => deleteUserBot(id));
-    return msg.channel.send("🔥 Todos los bots eliminados.");
+  if (text.startsWith("!removepremium ")) {
+    if (!adminSession[userId]) return msg.reply("⛔");
+
+    const id = text.split(" ")[1];
+    const premium = loadJSON(PREMIUM_FILE, {});
+    delete premium[id];
+    saveJSON(PREMIUM_FILE, premium);
+
+    const user = getUserData(id);
+    user.plan = "FREE";
+    updateUser(id, user);
+
+    return msg.reply(`❌ Usuario ${id} volvió a **FREE**`);
   }
 
-  // =====================
+  // ==================================
+  // PERFIL USUARIO
+  // ==================================
+  if (text === "!profile") {
+    const u = getUserData(userId);
+    return msg.reply(
+      `👤 PERFIL\n` +
+      `💳 Plan: ${u.plan}\n` +
+      `🤖 Bots: ${u.bots}/${maxBotsFor(userId)}\n` +
+      `📅 Desde: ${u.since}`
+    );
+  }
+
+  // ==================================
+  // PLANES
+  // ==================================
+  if (text === "!plans") {
+    return msg.reply(
+      "💎 **PLANES DISPONIBLES**\n\n" +
+      "FREE: 1 bot\n" +
+      "PRO: bots ilimitados + prioridad\n\n" +
+      "🎟 Para PRO → hablá en nuestro Discord"
+    );
+  }
+
+  // ==================================
   // BORRAR BOT PROPIO
-  // =====================
+  // ==================================
   if (text === "!deletebot") {
     const path = `./bots/${userId}`;
     if (!fs.existsSync(path)) return msg.channel.send("❌ No tenés bot.");
     fs.rmSync(path, { recursive: true, force: true });
+
+    const user = getUserData(userId);
+    if (user.bots > 0) user.bots--;
+    updateUser(userId, user);
+
     return msg.channel.send("🧹 Tu bot fue eliminado.");
   }
 
-  // =====================
-  // DEPLOY PRIVADO
-  // =====================
+  // ==================================
+  // DEPLOY PRIVADO CON CONTROL SaaS
+  // ==================================
   if (text === "!deploy") {
-    if (msg.guild) return msg.reply("📩 Escribí `!deploy` por PRIVADO.");
+    if (msg.guild) return msg.reply("📩 Usá `!deploy` por DM.");
+    
+    const userData = getUserData(userId);
+    if (userData.bots >= maxBotsFor(userId)) {
+      return msg.reply("🚫 Límite de bots alcanzado. Pasate a **PRO**.");
+    }
+
     deploySessions[userId] = { step: 0, data: {} };
     return msg.channel.send("🧱 IP del servidor?");
   }
 
+  // >>> CONTINÚA DEPLOY
   if (deploySessions[userId]) {
     const s = deploySessions[userId];
 
@@ -145,13 +266,13 @@ client.on("messageCreate", async (msg) => {
     if (s.step === 2) {
       s.data.name = text;
       s.step++;
-      return msg.channel.send("🎮 Versión (ej 1.20.4)");
+      return msg.channel.send("🎮 Versión de Minecraft?");
     }
 
     if (s.step === 3) {
       s.data.version = text;
       s.step++;
-      return msg.channel.send("✅ Escribí `si` para confirmar.");
+      return msg.channel.send("✅ Confirmar deploy? escribí: `si`");
     }
 
     if (s.step === 4) {
@@ -164,120 +285,122 @@ client.on("messageCreate", async (msg) => {
       if (!fs.existsSync("./bots")) fs.mkdirSync("./bots");
       if (!fs.existsSync(folder)) fs.mkdirSync(folder);
 
-      const cfg = `
+// CONFIG SaaS
+const user = getUserData(userId);
+const plans = getPlans();
+const plan = plans[user.plan] || plans["FREE"];
+
+const cfg = `
 module.exports = {
-  DISCORD_TOKEN: "${CFG.DISCORD_TOKEN}",
   SERVER_IP: "${s.data.ip}",
   SERVER_PORT: ${s.data.port},
   BOT_USERNAME: "${s.data.name}",
   MC_VERSION: "${s.data.version}",
-  CHECK_INTERVAL: 30000,
-  START_URL: "https://aternos.org/server/"
+
+  // SISTEMA SaaS
+  PLAN: "${user.plan}",
+  RECONNECT_TIME: ${plan.reconnect},
+  ADS_ENABLED: ${plan.ads}
 };
 `;
+fs.writeFileSync(`${folder}/config.js`, cfg.trim());
 
-      fs.writeFileSync(`${folder}/config.js`, cfg.trim());
-      delete deploySessions[userId];
+// copiar minebot
+fs.copyFileSync("minebot.js", `${folder}/minebot.js`);
 
-      return msg.channel.send(
-        "✅ Config creada.\n\n" +
-        "⚠ Reiniciá el bot:\n" +
-        "`npm start`"
-      );
+// index de ejecución
+const index = `
+const { spawn } = require("child_process");
+function start() {
+  const bot = spawn("node", ["minebot.js"], { stdio: "inherit" });
+  bot.on("exit", () => setTimeout(start, 5000));
+}
+start();
+`;
+fs.writeFileSync(`${folder}/index.js`, index.trim());
+
+// arrancar bot
+spawn("node", ["index.js"], { cwd: folder, detached: true, stdio: "ignore" });
+
+// actualizar SaaS
+user.bots++;
+updateUser(userId, user);
+
+// limpiar sesión
+delete deploySessions[userId];
+
+return msg.channel.send(
+  "✅ **BOT SaaS CREADO**\n" +
+  `🤖 Nombre: ${s.data.name}\n` +
+  `📂 Carpeta: ${folder}\n` +
+  `💳 Plan: ${user.plan}`
+);
     }
-
-    return;
   }
-
-  // =================
-  // PANEL BOTONES
-  // =================
+  // ==================================
+  // PANEL USUARIO
+  // ==================================
   if (text === "!panel") {
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("start_bot").setLabel("🚀 Iniciar").setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("stop_bot").setLabel("🛑 Detener").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`start_${userId}`).setLabel("🚀 Iniciar").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`stop_${userId}`).setLabel("🛑 Detener").setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId("status").setLabel("📡 Estado").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId("help").setLabel("❓ Ayuda").setStyle(ButtonStyle.Secondary)
     );
-
-    return msg.channel.send({ content: "🎮 PANEL PICOLAS BOT", components: [row] });
+    return msg.channel.send({ content: "🎮 PANEL USUARIO", components: [row] });
   }
 
-  // =================
-  // HELP
-  // =================
-  if (text === "!help") {
-    return msg.channel.send(
-      "🤖 PicolasAternosBot\n\n" +
-      "`!status`\n`!start`\n`!start2`\n`!stop2`\n`!say`\n`!deploy`\n`!deletebot`\n`!panel`\n\n" +
-      "👑 ADMIN:\n`!adminlist`\n`!admindelete ID`\n`!adminwipe`"
-    );
-  }
-
-  // =================
-  // STATUS
-  // =================
   if (text === "!status") {
     const ok = await isOnline();
     return msg.channel.send(ok ? "🟢 ONLINE" : "🔴 OFFLINE");
   }
 
-  // =================
-  // LINK
-  // =================
   if (text === "!start") {
     return msg.channel.send(CFG.START_URL || "https://aternos.org");
   }
 
-  // =================
-  // START BOT
-  // =================
-  if (text === "!start2") {
-    if (mineProcess) return msg.channel.send("⚠ Ya activo.");
-    mineProcess = spawn("node", ["minebot.js"], { stdio: "inherit" });
-    mineProcess.on("exit", () => mineProcess = null);
-    return msg.channel.send("✅ Minebot iniciado.");
-  }
-
-  // =================
-  // STOP BOT
-  // =================
-  if (text === "!stop2") {
-    if (!mineProcess) return msg.channel.send("ℹ No activo.");
-    mineProcess.kill();
-    mineProcess = null;
-    return msg.channel.send("🛑 Detenido.");
-  }
-
-  // =================
-  // SAY
-  // =================
   if (text.startsWith("!say ")) {
     const m = text.slice(5).trim();
-    if (!m) return msg.channel.send("❗ Texto vacío.");
+    if (!m) return msg.reply("❗ Texto vacío.");
     MineBot.tellFromDiscord(m);
     return msg.channel.send("✅ Enviado.");
   }
 });
 
-// =================
+// ==========================
 // BOTONES
-// =================
+// ==========================
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
+  const userId = interaction.user.id;
 
-  if (interaction.customId === "start_bot") {
-    if (mineProcess) return interaction.reply({ content: "⚠ Ya activo.", ephemeral: true });
-    mineProcess = spawn("node", ["minebot.js"], { stdio: "inherit" });
-    mineProcess.on("exit", () => mineProcess = null);
+  // ADMIN
+  if (interaction.customId === "admin_list") {
+    if (!adminSession[userId]) return interaction.reply({ content: "⛔", ephemeral: true });
+    const bots = getBots();
+    return interaction.reply(bots.length ? bots.join("\n") : "⚠ No hay bots");
+  }
+
+  if (interaction.customId === "admin_wipe") {
+    if (!adminSession[userId]) return interaction.reply({ content: "⛔", ephemeral: true });
+    getBots().forEach(id => deleteUserBot(id));
+    return interaction.reply("🔥 Todos los bots eliminados.");
+  }
+
+  if (interaction.customId === "admin_close") {
+    delete adminSession[userId];
+    return interaction.reply("✅ Admin cerrado.");
+  }
+
+  // USER
+  if (interaction.customId.startsWith("start_")) {
+    const id = interaction.customId.split("_")[1];
+    spawn("node", ["index.js"], { cwd: `./bots/${id}`, detached: true });
     return interaction.reply("✅ Bot iniciado.");
   }
 
-  if (interaction.customId === "stop_bot") {
-    if (!mineProcess) return interaction.reply({ content: "ℹ No activo.", ephemeral: true });
-    mineProcess.kill();
-    mineProcess = null;
-    return interaction.reply("🛑 Bot detenido.");
+  if (interaction.customId.startsWith("stop_")) {
+    return interaction.reply("⚠ Stop aún no implementado.");
   }
 
   if (interaction.customId === "status") {
@@ -286,14 +409,11 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   if (interaction.customId === "help") {
-    return interaction.reply({
-      content: "`!panel` `!start` `!start2` `!stop2` `!say` `!deploy` `!deletebot`",
-      ephemeral: true
-    });
+    return interaction.reply({ content: "`!deploy` `!profile` `!plans`", ephemeral: true });
   }
 });
 
-// =================
+// ==========================
 // LOGIN
-// =================
+// ==========================
 client.login(CFG.DISCORD_TOKEN);
