@@ -138,7 +138,28 @@ client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
   const text = (msg.content || "").trim();
-  const userId = msg.author.id;
+  const userId = msg.author.id
+    console.log(`💬 ${msg.author.username}: ${text}`);
+;
+
+// ==================================
+// HELP
+// ==================================
+if (text === "!help") {
+  return msg.reply(
+    "🤖 **PicolasAternosBot SaaS**\n\n" +
+    "`!deploy` → Crear tu bot\n" +
+    "`!profile` → Ver tu plan\n" +
+    "`!plans` → Ver planes\n" +
+    "`!panel` → Panel con botones\n" +
+    "`!deletebot` → Borrar tu bot\n" +
+    "`!say` → Hablar en el server\n\n" +
+    "👑 ADMIN:\n" +
+    "`!admin CONTRASEÑA`\n" +
+    "`!givepremium ID`\n" +
+    "`!removepremium ID`"
+  );
+}
 
   // ==================================
   // ADMIN LOGIN
